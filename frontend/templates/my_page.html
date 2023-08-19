@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">My Page</h2>
+    <div class="row">
+        <div class="col-md-2">
+            <label for="image" class="font-weight-bold">Image:</label>
+        </div>
+        <div class="col-md-10">
+            <img src="{{ image_url }}" alt="Profile Image" class="img-thumbnail" width="200">
+        </div>
+    </div>
+</div>
+{% endblock %}

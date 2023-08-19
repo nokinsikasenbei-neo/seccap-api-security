@@ -137,7 +137,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/user/image", tags=["user"], status_code=201)
+@app.post("/user/image/", tags=["user"], status_code=201)
 async def register_user_image(image_data: UserImage, current_user: UserIn = Depends(get_current_user)):
     # SSRFの脆弱性部分
     try:
@@ -153,9 +153,9 @@ async def register_user_image(image_data: UserImage, current_user: UserIn = Depe
     await database.execute(query)
     return {"detail": "Image URL updated successfully"}
 
-@app.get("/user/{user_id}/image", tags=["user"])
-async def get_user_image(user_id: int):
-    query = User.__table__.select().where(User.id == user_id)
+@app.get("/user/image/", tags=["user"])
+async def get_user_image(user_id: int, current_user: UserIn = Depends(get_current_user)):
+    query = User.__table__.select().where(User.id == current_user.id)
     user = await database.fetch_one(query)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -177,7 +177,7 @@ async def get_user_image(user_id: int):
 
 # @app.get("/post/{post_id}", response_model=PostOut)
 @app.get("/post/{post_id}/", tags=["post"])
-async def get_post_by_id(post_id: str, current_user: UserIn = Depends(get_current_user)):
+async def get_post_by_id(post_id: str):
     raw_query = f"SELECT id, title, content, user_id, is_private FROM posts WHERE id = {post_id};"
     posts = await database.fetch_all(raw_query)
 
@@ -191,8 +191,10 @@ async def get_post_by_id(post_id: str, current_user: UserIn = Depends(get_curren
     post_user = await database.fetch_one(user_query)
 
     # postがprivateであり、postのusernameとcurrent_userのusernameが異なる場合、エラーを投げる
-    if post.is_private and post.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access to private post denied")
+    if post.is_private:
+        current_user = get_current_user()
+        if post_user.username != current_user.username:
+            raise HTTPException(status_code=403, detail="Access to private post denied")
 
     return posts
 

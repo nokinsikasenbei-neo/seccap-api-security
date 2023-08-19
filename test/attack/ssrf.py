@@ -37,8 +37,9 @@ def register_user_image(image_url, token):
     return response.json()
 
 # ユーザーの画像を取得
-def get_user_image(user_id):
-    response = requests.get(f"{BASE_URL}/user/{user_id}/image")
+def get_user_image(token):
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(f"{BASE_URL}/user/image", headers=headers)
     
     if response.status_code == 200:
         return response.text
@@ -66,5 +67,5 @@ if __name__ == "__main__":
     print(f"Image Registration Result: {image_result}")
 
     # ユーザー画像を取得して保存
-    image_download_result = get_user_image(user_info["id"])
+    image_download_result = get_user_image(token)
     print(image_download_result)

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card mb-3">
+        <div class="card-header">
+            <span class="font-weight-bold">Title:</span>
+            {{ post.title }}
+        </div>
+        <div class="card-body">
+            <p><span class="font-weight-bold">Content:</span><br>{{ post.content }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
