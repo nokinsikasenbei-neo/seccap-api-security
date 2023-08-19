@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, Sequence('user_id_seq'), primary_key=True)
     username = Column(String(50), unique=True)
     hashed_password = Column(String(100))
+    image_url = Column(String(100))
 
 class Post(Base):
     __tablename__ = 'posts'

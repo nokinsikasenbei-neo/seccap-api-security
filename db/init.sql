@@ -5,7 +5,8 @@ CREATE TABLE users
 (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
-    hashed_password VARCHAR(255) NOT NULL
+    hashed_password VARCHAR(255) NOT NULL,
+    image_url VARCHAR(255)
 );
 
 CREATE TABLE posts 

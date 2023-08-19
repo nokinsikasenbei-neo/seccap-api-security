@@ -1,5 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -10,6 +12,7 @@ from models import Base, User, Post
 from jose import JWTError, jwt
 import secrets
 import os
+import httpx
 
 app = FastAPI()
 
@@ -46,6 +49,9 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str
+
+class UserImage(BaseModel):
+    image_url: str
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
@@ -131,8 +137,46 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.post("/user/image", status_code=201)
+async def register_user_image(image_data: UserImage, current_user: UserIn = Depends(get_current_user)):
+    # SSRFの脆弱性部分
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(image_data.image_url)
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
+
+    # 画像URLをユーザーデータベースに保存
+    query = User.__table__.update().where(User.id == current_user.id).values(image_url=image_data.image_url)
+    await database.execute(query)
+    return {"detail": "Image URL updated successfully"}
+
+@app.get("/user/{user_id}/image")
+async def get_user_image(user_id: int):
+    query = User.__table__.select().where(User.id == user_id)
+    user = await database.fetch_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.image_url:
+        raise HTTPException(status_code=404, detail="No image associated with this user")
+
+    # SSRFの脆弱性部分
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(user.image_url)
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Failed to fetch the image")
+    except requests.exceptions.Timeout:
+        raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
+
+    media_type = response.headers.get("Content-Type", "application/octet-stream")
+    return StreamingResponse(BytesIO(response.content), media_type=media_type)  # Assuming the image is JPEG. Adjust as needed.
+
 # @app.get("/post/{post_id}", response_model=PostOut)
-@app.get("/post/{post_id}")
+@app.get("/post/{post_id}/")
 async def get_post_by_id(post_id: str, current_user: UserIn = Depends(get_current_user)):
     raw_query = f"SELECT id, title, content, user_id, is_private FROM posts WHERE id = {post_id};"
     posts = await database.fetch_all(raw_query)
@@ -158,10 +202,21 @@ async def get_posts(skip: int = 0, limit: int = 10):
     posts = await database.fetch_all(query)
     return posts
 
-@app.post("/post/create", response_model=PostOut, status_code=201)
+@app.post("/post/create/", response_model=PostOut, status_code=201)
 async def create_post(post: PostCreate, current_user: UserIn = Depends(get_current_user)):
     query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, is_private=post.is_private)
     post_id = await database.execute(query)
     query = Post.__table__.select().where(Post.id == post_id)
     post = await database.fetch_one(query)
     return post
+
+# 管理者用API
+@app.get("/admin/users")
+async def list_users(request: Request, skip: int = 0, limit: int = 10):
+    client_host = request.client.host
+    if client_host not in ("127.0.0.1", "::1"):
+        raise HTTPException(status_code=403, detail="Not allowed!")
+
+    query = User.__table__.select().offset(skip).limit(limit)
+    users = await database.fetch_all(query)
+    return users
