@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Sequence
+from sqlalchemy import create_engine, Column, Integer, String, Sequence, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -16,3 +16,4 @@ class Post(Base):
     title = Column(String(100))
     content = Column(String(500))
     user_id = Column(Integer)
+    is_private = Column(Boolean, default=False)

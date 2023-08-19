@@ -32,6 +32,7 @@ class UserIn(BaseModel):
 class PostCreate(BaseModel):
     title: str
     content: str
+    is_private: bool = False
 
 class PostOut(BaseModel):
     id: int
@@ -96,10 +97,10 @@ async def shutdown():
 
 @app.post("/user/register/", status_code=201)
 async def register(user: UserIn):
-    query = User.__table__.select().where(User.username == user.username)
-    existing_user = await database.fetch_one(query)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already exists.")
+    # query = User.__table__.select().where(User.username == user.username)
+    # existing_user = await database.fetch_one(query)
+    # if existing_user:
+    #     raise HTTPException(status_code=400, detail="Username already exists.")
     
     hashed_password = get_password_hash(user.password)
     query = User.__table__.insert().values(username=user.username, hashed_password=hashed_password)
@@ -109,7 +110,13 @@ async def register(user: UserIn):
 @app.post("/user/login/", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     query = User.__table__.select().where(User.username == form_data.username)
-    user = await database.fetch_one(query)
+    users = await database.fetch_all(query)
+
+    user = None
+    for potential_user in users:
+        if verify_password(form_data.password, potential_user.hashed_password):
+            user = potential_user
+            break
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -126,23 +133,34 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 # @app.get("/post/{post_id}", response_model=PostOut)
 @app.get("/post/{post_id}")
-async def get_post_by_id(post_id: str):
-    raw_query = f"SELECT id, title, content, user_id FROM posts WHERE id = {post_id};"
-    post = await database.fetch_all(raw_query)
-    print("post: ", post)
-    if post is None:
+async def get_post_by_id(post_id: str, current_user: UserIn = Depends(get_current_user)):
+    raw_query = f"SELECT id, title, content, user_id, is_private FROM posts WHERE id = {post_id};"
+    posts = await database.fetch_all(raw_query)
+
+    if not posts:
         raise HTTPException(status_code=404, detail="Post not found")
-    return post
+    
+    post = posts[0]
+
+    # postのuser_idに関連付けられているusernameを取得する
+    user_query = User.__table__.select().where(User.id == post.user_id)
+    post_user = await database.fetch_one(user_query)
+
+    # postがprivateであり、postのusernameとcurrent_userのusernameが異なる場合、エラーを投げる
+    if post.is_private and post.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access to private post denied")
+
+    return posts
 
 @app.get("/posts/", response_model=List[PostOut])
 async def get_posts(skip: int = 0, limit: int = 10):
-    query = Post.__table__.select().offset(skip).limit(limit)
+    query = Post.__table__.select().where(Post.is_private == False).offset(skip).limit(limit)
     posts = await database.fetch_all(query)
     return posts
 
 @app.post("/post/create", response_model=PostOut, status_code=201)
 async def create_post(post: PostCreate, current_user: UserIn = Depends(get_current_user)):
-    query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id)
+    query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, is_private=post.is_private)
     post_id = await database.execute(query)
     query = Post.__table__.select().where(Post.id == post_id)
     post = await database.fetch_one(query)
