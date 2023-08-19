@@ -101,7 +101,7 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-@app.post("/user/register/", status_code=201)
+@app.post("/user/register/", tags=["user"], status_code=201)
 async def register(user: UserIn):
     # query = User.__table__.select().where(User.username == user.username)
     # existing_user = await database.fetch_one(query)
@@ -113,7 +113,7 @@ async def register(user: UserIn):
     user_id = await database.execute(query)
     return {"id": user_id, "username": user.username}
 
-@app.post("/user/login/", response_model=Token)
+@app.post("/user/login/", tags=["user"], response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     query = User.__table__.select().where(User.username == form_data.username)
     users = await database.fetch_all(query)
@@ -137,7 +137,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/user/image", status_code=201)
+@app.post("/user/image", tags=["user"], status_code=201)
 async def register_user_image(image_data: UserImage, current_user: UserIn = Depends(get_current_user)):
     # SSRFの脆弱性部分
     try:
@@ -153,7 +153,7 @@ async def register_user_image(image_data: UserImage, current_user: UserIn = Depe
     await database.execute(query)
     return {"detail": "Image URL updated successfully"}
 
-@app.get("/user/{user_id}/image")
+@app.get("/user/{user_id}/image", tags=["user"])
 async def get_user_image(user_id: int):
     query = User.__table__.select().where(User.id == user_id)
     user = await database.fetch_one(query)
@@ -176,7 +176,7 @@ async def get_user_image(user_id: int):
     return StreamingResponse(BytesIO(response.content), media_type=media_type)  # Assuming the image is JPEG. Adjust as needed.
 
 # @app.get("/post/{post_id}", response_model=PostOut)
-@app.get("/post/{post_id}/")
+@app.get("/post/{post_id}/", tags=["post"])
 async def get_post_by_id(post_id: str, current_user: UserIn = Depends(get_current_user)):
     raw_query = f"SELECT id, title, content, user_id, is_private FROM posts WHERE id = {post_id};"
     posts = await database.fetch_all(raw_query)
@@ -196,13 +196,13 @@ async def get_post_by_id(post_id: str, current_user: UserIn = Depends(get_curren
 
     return posts
 
-@app.get("/posts/", response_model=List[PostOut])
+@app.get("/posts/", tags=["post"], response_model=List[PostOut])
 async def get_posts(skip: int = 0, limit: int = 10):
     query = Post.__table__.select().where(Post.is_private == False).offset(skip).limit(limit)
     posts = await database.fetch_all(query)
     return posts
 
-@app.post("/post/create/", response_model=PostOut, status_code=201)
+@app.post("/post/create/", tags=["post"], response_model=PostOut, status_code=201)
 async def create_post(post: PostCreate, current_user: UserIn = Depends(get_current_user)):
     query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, is_private=post.is_private)
     post_id = await database.execute(query)
@@ -211,7 +211,8 @@ async def create_post(post: PostCreate, current_user: UserIn = Depends(get_curre
     return post
 
 # 管理者用API
-@app.get("/admin/users")
+## ユーザーの一覧を取得
+@app.get("/admin/users/", tags=["admin"])
 async def list_users(request: Request, skip: int = 0, limit: int = 10):
     client_host = request.client.host
     if client_host not in ("127.0.0.1", "::1"):
@@ -220,3 +221,10 @@ async def list_users(request: Request, skip: int = 0, limit: int = 10):
     query = User.__table__.select().offset(skip).limit(limit)
     users = await database.fetch_all(query)
     return users
+
+## ユーザーの投稿を削除
+@app.delete("/admin/post/delete/{post_id}/", tags=["admin"], status_code=200)
+async def delete_post(post_id: int):
+    query = Post.__table__.delete().where(Post.id == post_id)
+    await database.execute(query)
+    return {"detail": f"Post with id {post_id} deleted successfully"}
