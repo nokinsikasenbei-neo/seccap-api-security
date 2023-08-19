@@ -124,6 +124,16 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+# @app.get("/post/{post_id}", response_model=PostOut)
+@app.get("/post/{post_id}")
+async def get_post_by_id(post_id: str):
+    raw_query = f"SELECT id, title, content, user_id FROM posts WHERE id = {post_id};"
+    post = await database.fetch_all(raw_query)
+    print("post: ", post)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
 @app.get("/posts/", response_model=List[PostOut])
 async def get_posts(skip: int = 0, limit: int = 10):
     query = Post.__table__.select().offset(skip).limit(limit)
