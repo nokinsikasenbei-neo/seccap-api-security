@@ -177,7 +177,7 @@ async def get_user_image(current_user: UserIn = Depends(get_current_user)):
 
 # @app.get("/post/{post_id}", response_model=PostOut)
 @app.get("/post/{post_id}/", tags=["post"])
-async def get_post_by_id(post_id: str):
+async def get_post_by_id(post_id: str, current_user: str = Depends(get_current_user)):
     raw_query = f"SELECT id, title, content, user_id, is_private FROM posts WHERE id = {post_id};"
     posts = await database.fetch_all(raw_query)
 
@@ -191,10 +191,8 @@ async def get_post_by_id(post_id: str):
     post_user = await database.fetch_one(user_query)
 
     # postがprivateであり、postのusernameとcurrent_userのusernameが異なる場合、エラーを投げる
-    if post.is_private:
-        current_user = get_current_user()
-        if post_user.username != current_user.username:
-            raise HTTPException(status_code=403, detail="Access to private post denied")
+    if post.is_private and post_user.username != current_user.username:
+        raise HTTPException(status_code=403, detail="Access to private post denied")
 
     return posts
 

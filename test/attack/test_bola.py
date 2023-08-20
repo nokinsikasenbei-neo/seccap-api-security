@@ -1,6 +1,7 @@
 import requests
 import secrets
 import string
+import pytest
 
 BASE_URL = "http://localhost:8000"
 
@@ -31,53 +32,45 @@ def create_private_post(title, content, token):
     response = requests.post(f"{BASE_URL}/post/create", headers=headers, json=payload)
     return response.json()
 
-def get_post_by_id(post_id, token=None):
+def get_post_by_id(post_id, token):
     headers = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     response = requests.get(f"{BASE_URL}/post/{post_id}", headers=headers)
     return response.json()
 
-def delete_post_by_id(post_id, token=None):
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    response = requests.delete(f"{BASE_URL}/admin/post/delete/{post_id}", headers=headers)
-    return response.json()
-
-if __name__ == "__main__":
-    # ユーザーA、Bの登録
+@pytest.fixture(scope="module")
+def registered_users():
     userA_username = generate_random_string(10)
     userA_password = generate_random_string(10)
-    userB_username = generate_random_string(10)
+    userB_username = userA_username  # ユーザーAと同名
     userB_password = generate_random_string(10)
 
     register_user(userA_username, userA_password)
-    print(f"Registered User A: {userA_username}")
-    
     register_user(userB_username, userB_password)
-    print(f"Registered User B: {userB_username}")
 
-    # ユーザーAでログイン
     tokenA = login_user(userA_username, userA_password)
-    print(f"User A Access Token: {tokenA}")
-
-    # ユーザーAがプライベートな投稿
-    post = create_private_post("Private Title", "Private Content", tokenA)
-    print(f"Created Post by User A: {post}")
-
-    # ユーザーAでそのプライベートな投稿を閲覧
-    post_by_A = get_post_by_id(post["id"], tokenA)
-    print(f"Retrieved Post by User A: {post_by_A}")
-
-    # ユーザーBでログイン
     tokenB = login_user(userB_username, userB_password)
-    print(f"User B Access Token: {tokenB}")
+    return userA_username, userA_password, userB_username, userB_password, tokenA, tokenB
 
-    # ユーザーBがユーザーAのプライベートな投稿を削除
-    delete_response_by_B = delete_post_by_id(post["id"], tokenB)
-    print(f"Attempt to Delete Post by User B: {delete_response_by_B}")
+def test_create_and_retrieve_post_by_userA(registered_users):
+    _, _, _, _, tokenA, _ = registered_users
+    post = create_private_post("Private Title", "Private Content", tokenA)
+    post_by_A = get_post_by_id(post["id"], tokenA)[0]
+    
+    assert post["title"] == post_by_A["title"]
+    assert post["content"] == post_by_A["content"]
 
-    # ユーザーAでそのプライベートな投稿を再度閲覧
-    post_by_A_after_delete = get_post_by_id(post["id"], tokenA)
-    print(f"Attempt to Retrieve Deleted Post by User A: {post_by_A_after_delete}")
+def test_retrieve_post_by_userB(registered_users):
+    _, _, _, _, tokenA, tokenB = registered_users
+    post = create_private_post("Private Title", "Private Content", tokenA)
+    post_by_A = get_post_by_id(post["id"], tokenB)[0]
+
+    assert post["title"] == post_by_A["title"]
+    assert post["content"] == post_by_A["content"]
+
+
+
+
+
+

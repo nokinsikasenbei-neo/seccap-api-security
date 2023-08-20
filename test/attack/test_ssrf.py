@@ -1,6 +1,8 @@
 import requests
 import secrets
 import string
+import shutil
+import pytest
 
 # APIのベースURL
 BASE_URL = "http://localhost:8000"  # FastAPIのデフォルトのアドレスとポート
@@ -28,44 +30,36 @@ def login_user(username, password):
     response = requests.post(f"{BASE_URL}/user/login/", data=data)
     return response.json()["access_token"]
 
-# 投稿作成
-def create_post(title, content, token):
+# ユーザーの画像を登録
+def register_user_image(image_url, token):
     headers = {"Authorization": f"Bearer {token}"}
-    payload = {"title": title, "content": content}
-    response = requests.post(f"{BASE_URL}/post/create", headers=headers, json=payload)
+    payload = {"image_url": image_url}
+    response = requests.post(f"{BASE_URL}/user/image/", headers=headers, json=payload)
     return response.json()
 
-# 投稿取得
-def get_post_by_id(post_id):
-    response = requests.get(f"{BASE_URL}/post/{post_id}")
-    return response.json()
+# ユーザーの画像を取得
+def get_user_image(token):
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(f"{BASE_URL}/user/image/", headers=headers)
+    return response.text
 
-# 投稿の一覧取得
-def get_posts():
-    response = requests.get(f"{BASE_URL}/posts/")
-    return response.json()
-
-if __name__ == "__main__":
-    # usernameとpasswordを生成
+@pytest.fixture(scope="module")
+def registered_user():
     username = generate_random_string(10)
     password = generate_random_string(10)
-
-    # ユーザー登録
     user_info = register_user(username, password)
-    print(f"Registered User: {user_info}")
-
-    # ログイン
     token = login_user(username, password)
-    print(f"Access Token: {token}")
+    return username, password, user_info, token
 
-    # 投稿作成
-    post = create_post("Test Title", "Test Content", token)
-    print(f"Created Post: {post}")
+def test_user_image_registration_and_download(registered_user):
+    _, _, _, token = registered_user
 
-    # 投稿取得
-    post = get_post_by_id(post["id"])
-    print(f"Post: {post}")
+    image_url = "http://localhost:8000/admin/users/"
     
-    # 投稿の一覧取得
-    posts = get_posts()
-    print(f"Posts: {posts}")
+    # ユーザー画像を登録
+    image_registration_result = register_user_image(image_url, token)
+    assert image_registration_result["detail"] == "Image URL updated successfully"
+    
+    # ユーザー画像を取得
+    image_download_result = get_user_image(token)
+    assert image_download_result != None

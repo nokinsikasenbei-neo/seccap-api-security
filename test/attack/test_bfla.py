@@ -1,6 +1,7 @@
 import requests
 import secrets
 import string
+import pytest
 
 BASE_URL = "http://localhost:8000"
 
@@ -38,35 +39,38 @@ def get_post_by_id(post_id, token=None):
     response = requests.get(f"{BASE_URL}/post/{post_id}", headers=headers)
     return response.json()
 
-if __name__ == "__main__":
-    # ユーザーA、Bの登録
+def delete_post_by_id(post_id):
+    response = requests.delete(f"{BASE_URL}/admin/post/delete/{post_id}")
+    return response.json()
+
+@pytest.fixture(scope="module")
+def registered_users():
     userA_username = generate_random_string(10)
     userA_password = generate_random_string(10)
     userB_username = generate_random_string(10)
     userB_password = generate_random_string(10)
 
     register_user(userA_username, userA_password)
-    print(f"Registered User A: {userA_username}")
-    
     register_user(userB_username, userB_password)
-    print(f"Registered User B: {userB_username}")
 
-    # ユーザーAでログイン
     tokenA = login_user(userA_username, userA_password)
-    print(f"User A Access Token: {tokenA}")
-
-    # ユーザーAがプライベートな投稿
-    post = create_private_post("Private Title", "Private Content", tokenA)
-    print(f"Created Post by User A: {post}")
-
-    # ユーザーAでそのプライベートな投稿を閲覧
-    post_by_A = get_post_by_id(post["id"], tokenA)
-    print(f"Retrieved Post by User A: {post_by_A}")
-
-    # ユーザーBでログイン
     tokenB = login_user(userB_username, userB_password)
-    print(f"User B Access Token: {tokenB}")
+    return userA_username, userA_password, userB_username, userB_password, tokenA, tokenB
 
-    # ユーザーBがユーザーAのプライベートな投稿を試みて閲覧
-    post_by_B = get_post_by_id(post["id"], tokenB)
-    print(f"Attempt to Retrieve Post by User B: {post_by_B}")
+def test_create_retrieve_and_delete_post(registered_users):
+    _, _, _, _, tokenA, tokenB = registered_users
+
+    post = create_private_post("Private Title", "Private Content", tokenA)
+    post_by_A = get_post_by_id(post["id"], tokenA)[0]
+    
+    # ユーザーAが作成した投稿を確認
+    assert post["title"] == post_by_A["title"]
+    assert post["content"] == post_by_A["content"]
+
+    # ユーザーBがユーザーAのプライベート投稿を削除を試みる
+    delete_response_by_B = delete_post_by_id(post["id"])
+    assert delete_response_by_B["detail"] == f"Post with id {post['id']} deleted successfully"
+
+    # ユーザーAがそのプライベート投稿を再度閲覧して、削除されていることを確認
+    post_by_A_after_delete = get_post_by_id(post["id"], tokenA)
+    assert post_by_A_after_delete["detail"] == "Post not found"
