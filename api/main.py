@@ -101,6 +101,10 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
+@app.get("/healthcheck", status_code=200)
+def healthcheck():
+    return {"status": "ok"}
+
 @app.post("/user/register/", tags=["user"], status_code=201)
 async def register(user: UserIn):
     # query = User.__table__.select().where(User.username == user.username)

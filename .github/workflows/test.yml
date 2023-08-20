@@ -30,6 +30,9 @@ jobs:
       run: |
         docker-compose up -d --build
 
+    - name: Wait for API server to start
+      run: ./wait_for_api.sh 
+
     - name: Run pytest
       run: |
         pytest test/*
