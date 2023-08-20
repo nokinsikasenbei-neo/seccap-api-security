@@ -145,7 +145,7 @@ async def register_user_image(image_data: UserImage, current_user: UserIn = Depe
             response = await client.get(image_data.image_url)
             if response.status_code != 200:
                 raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
-    except requests.exceptions.Timeout:
+    except Exception as e:
         raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
 
     # 画像URLをユーザーデータベースに保存
@@ -154,7 +154,7 @@ async def register_user_image(image_data: UserImage, current_user: UserIn = Depe
     return {"detail": "Image URL updated successfully"}
 
 @app.get("/user/image/", tags=["user"])
-async def get_user_image(user_id: int, current_user: UserIn = Depends(get_current_user)):
+async def get_user_image(current_user: UserIn = Depends(get_current_user)):
     query = User.__table__.select().where(User.id == current_user.id)
     user = await database.fetch_one(query)
     if not user:
@@ -169,8 +169,8 @@ async def get_user_image(user_id: int, current_user: UserIn = Depends(get_curren
             response = await client.get(user.image_url)
             if response.status_code != 200:
                 raise HTTPException(status_code=500, detail="Failed to fetch the image")
-    except requests.exceptions.Timeout:
-        raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to fetch the image")
 
     media_type = response.headers.get("Content-Type", "application/octet-stream")
     return StreamingResponse(BytesIO(response.content), media_type=media_type)  # Assuming the image is JPEG. Adjust as needed.

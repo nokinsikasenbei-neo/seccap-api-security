@@ -33,18 +33,14 @@ def login_user(username, password):
 def register_user_image(image_url, token):
     headers = {"Authorization": f"Bearer {token}"}
     payload = {"image_url": image_url}
-    response = requests.post(f"{BASE_URL}/user/image", headers=headers, json=payload)
+    response = requests.post(f"{BASE_URL}/user/image/", headers=headers, json=payload)
     return response.json()
 
 # ユーザーの画像を取得
 def get_user_image(token):
     headers = {"Authorization": f"Bearer {token}"}
-    response = requests.get(f"{BASE_URL}/user/image", headers=headers)
-    
-    if response.status_code == 200:
-        return response.text
-    else:
-        return None
+    response = requests.get(f"{BASE_URL}/user/image/", headers=headers)
+    return response.text
 
 if __name__ == "__main__":
     # usernameとpasswordを生成
@@ -60,7 +56,7 @@ if __name__ == "__main__":
     print(f"Access Token: {token}")
 
     # 画像URL
-    image_url = "http://localhost:8000/admin/users"
+    image_url = "http://localhost:8000/admin/users/"
 
     # ユーザー画像を登録
     image_result = register_user_image(image_url, token)
