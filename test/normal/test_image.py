@@ -15,7 +15,7 @@ def generate_random_string(length: int) -> str:
 # ユーザー登録
 def register_user(username, password):
     payload = {"username": username, "password": password}
-    response = requests.post(f"{BASE_URL}/user/register/", json=payload)
+    response = requests.post(f"{BASE_URL}/user/register", json=payload)
     return response.json()
 
 # ログイン
@@ -28,7 +28,7 @@ def login_user(username, password):
         "client_id": "", 
         "client_secret": ""
     }
-    response = requests.post(f"{BASE_URL}/user/login/", data=data)
+    response = requests.post(f"{BASE_URL}/user/login", data=data)
     return response.json()["access_token"]
 
 # ユーザーの画像を登録

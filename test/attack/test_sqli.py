@@ -26,7 +26,7 @@ def login_user(username, password):
         "client_id": "", 
         "client_secret": ""
     }
-    response = requests.post(f"{BASE_URL}/user/login/", data=data)
+    response = requests.post(f"{BASE_URL}/user/login", data=data)
     return response.json()["access_token"]
 
 # 投稿作成
