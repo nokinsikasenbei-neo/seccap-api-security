@@ -43,6 +43,10 @@ def delete_post_by_id(post_id):
     response = requests.delete(f"{BASE_URL}/admin/post/delete/{post_id}")
     return response.json()
 
+def get_all_posts():
+    response = requests.get(f"{BASE_URL}/admin/all_posts")
+    return response.json()
+
 @pytest.fixture(scope="module")
 def registered_users():
     userA_username = generate_random_string(10)
@@ -74,3 +78,25 @@ def test_create_retrieve_and_delete_post(registered_users):
     # ユーザーAがそのプライベート投稿を再度閲覧して、削除されていることを確認
     post_by_A_after_delete = get_post_by_id(post["id"], tokenA)
     assert post_by_A_after_delete["detail"] == "Post not found"
+
+def test_admin_get_all_posts(registered_users):
+    _, _, _, _, tokenA, tokenB = registered_users
+
+    postA = create_private_post("Post by A", "Content A", tokenA)
+    postB = create_private_post("Post by B", "Content B", tokenB)
+
+    all_posts = get_all_posts()
+
+    # 全投稿からユーザーAとBの投稿を検索
+    postA_from_all = next((post for post in all_posts if post["id"] == postA["id"]), None)
+    postB_from_all = next((post for post in all_posts if post["id"] == postB["id"]), None)
+
+    # ユーザーAとBの投稿が存在することを確認
+    assert postA_from_all is not None
+    assert postB_from_all is not None
+
+    # タイトルとコンテンツが正しいことを確認
+    assert postA_from_all["title"] == "Post by A"
+    assert postA_from_all["content"] == "Content A"
+    assert postB_from_all["title"] == "Post by B"
+    assert postB_from_all["content"] == "Content B"

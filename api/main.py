@@ -13,6 +13,7 @@ from jose import JWTError, jwt
 import secrets
 import os
 import httpx
+import pdfkit
 
 app = FastAPI()
 
@@ -101,10 +102,13 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
+# ユーザー用API
+## ヘルスチェック
 @app.get("/healthcheck", status_code=200)
 def healthcheck():
     return {"status": "ok"}
 
+## ユーザー登録
 @app.post("/user/register", tags=["user"], status_code=201)
 async def register(user: UserIn):
     # query = User.__table__.select().where(User.username == user.username)
@@ -117,6 +121,7 @@ async def register(user: UserIn):
     user_id = await database.execute(query)
     return {"id": user_id, "username": user.username}
 
+## ログイン
 @app.post("/user/login", tags=["user"], response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     query = User.__table__.select().where(User.username == form_data.username)
@@ -141,6 +146,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+## ユーザーの画像を登録
 @app.post("/user/image", tags=["user"], status_code=201)
 async def register_user_image(image_data: UserImage, current_user: UserIn = Depends(get_current_user)):
     # SSRFの脆弱性部分
@@ -157,6 +163,7 @@ async def register_user_image(image_data: UserImage, current_user: UserIn = Depe
     await database.execute(query)
     return {"detail": "Image URL updated successfully"}
 
+## ユーザーの画像を取得
 @app.get("/user/image", tags=["user"])
 async def get_user_image(current_user: UserIn = Depends(get_current_user)):
     query = User.__table__.select().where(User.id == current_user.id)
@@ -179,7 +186,16 @@ async def get_user_image(current_user: UserIn = Depends(get_current_user)):
     media_type = response.headers.get("Content-Type", "application/octet-stream")
     return StreamingResponse(BytesIO(response.content), media_type=media_type)  # Assuming the image is JPEG. Adjust as needed.
 
-# @app.get("/post/{post_id}", response_model=PostOut)
+## ユーザーのプロフィールを取得
+@app.get("/user/profile/{user_id}", tags=["user"])
+async def get_user_profile(user_id: int, current_user: UserIn = Depends(get_current_user)):
+    query = User.__table__.select().where(User.id == user_id)
+    user = await database.fetch_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+## 投稿の取得
 @app.get("/post/{post_id}", tags=["post"])
 async def get_post_by_id(post_id: str, current_user: str = Depends(get_current_user)):
     raw_query = f"SELECT id, title, content, user_id, is_private FROM posts WHERE id = {post_id};"
@@ -200,12 +216,14 @@ async def get_post_by_id(post_id: str, current_user: str = Depends(get_current_u
 
     return posts
 
+## 公開されている投稿の一覧を取得
 @app.get("/posts", tags=["post"], response_model=List[PostOut])
 async def get_posts(skip: int = 0, limit: int = 10):
     query = Post.__table__.select().where(Post.is_private == False).offset(skip).limit(limit)
     posts = await database.fetch_all(query)
     return posts
 
+## 投稿の作成
 @app.post("/post/create", tags=["post"], response_model=PostOut, status_code=201)
 async def create_post(post: PostCreate, current_user: UserIn = Depends(get_current_user)):
     query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, is_private=post.is_private)
@@ -213,6 +231,37 @@ async def create_post(post: PostCreate, current_user: UserIn = Depends(get_curre
     query = Post.__table__.select().where(Post.id == post_id)
     post = await database.fetch_one(query)
     return post
+
+## 投稿をPDFにしてエクスポート
+@app.get("/post/export/{post_id}", tags=["post"])
+async def export_post_to_pdf(post_id: int, current_user: UserIn = Depends(get_current_user)):
+    # postの情報を取得
+    query = Post.__table__.select().where(Post.id == post_id)
+    post = await database.fetch_one(query)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    # postがprivateであり、postのusernameとcurrent_userのusernameが異なる場合、エラーを投げる
+    if post.is_private and post_user.username != current_user.username:
+        raise HTTPException(status_code=403, detail="Access to private post denied")
+    
+    # postの情報をHTML形式でフォーマット
+    html_content = f"""
+    <html>
+        <head>
+            <title>{post.title}</title>
+        </head>
+        <body>
+            <h1>{post.title}</h1>
+            <p>{post.content}</p>
+        </body>
+    </html>
+    """
+    
+    # HTMLをPDFに変換
+    pdf = pdfkit.from_string(html_content, False)
+    
+    return StreamingResponse(BytesIO(pdf), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=post_{post_id}.pdf"})
 
 # 管理者用API
 ## ユーザーの一覧を取得
@@ -232,3 +281,10 @@ async def delete_post(post_id: int):
     query = Post.__table__.delete().where(Post.id == post_id)
     await database.execute(query)
     return {"detail": f"Post with id {post_id} deleted successfully"}
+
+## 全ての投稿を取得
+@app.get("/admin/all_posts", tags=["admin"])
+async def get_all_posts():
+    query = Post.__table__.select()
+    posts = await database.fetch_all(query)
+    return posts
