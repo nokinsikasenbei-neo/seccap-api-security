@@ -5,7 +5,6 @@ WORKDIR /api
 COPY requirements.txt ./
 
 RUN apt-get update && \
-    apt-get install -y wkhtmltopdf && \ 
     pip install -r requirements.txt
 
 COPY . .

@@ -11,6 +11,13 @@ services:
       - db
     environment:
       DATABASE_URL: "mysql://user:password@db/mydatabase"
+      BFLA_FLAG1: "flag{Funct10n_n07_4uth0r1z3d_f0r_y0u}"
+      BFLA_FLAG2: "flag{M45t3r_0f_byp4551ng_funct10n_4uth}"
+      BOLA_FLAG1: "flag{4cc3ss_t0_un4uth0r1z3d_0bj3ct}"
+      BOLA_FLAG2: "flag{0bj3ct_c0ntr0l_byp4553d}"
+      SSRF_FLAG1: "flag{1nt3rn4l_s3rv3r_4cc3ss3d}"
+      SSRF_FLAG2: "flag{F0rg3d_4_r3qu3st_t0_th3_s3rv3r}"
+      ADMIN_PASS: "uJDEYbWH9,J&QP/U"
 
   frontend:
     build:

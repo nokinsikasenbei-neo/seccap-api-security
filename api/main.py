@@ -13,18 +13,26 @@ from jose import JWTError, jwt
 import secrets
 import os
 import httpx
-import pdfkit
+from urllib.parse import urlparse
 
 app = FastAPI()
 
 # Generate a random 128-bit SECRET_KEY
 SECRET_KEY = secrets.token_hex(16)
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 600
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 database = Database(DATABASE_URL)
 metadata = Base.metadata
+
+# FLAG
+BFLA_FLAG1 = os.environ.get("BFLA_FLAG1")
+BFLA_FLAG2 = os.environ.get("BFLA_FLAG2")
+BOLA_FLAG1 = os.environ.get("BOLA_FLAG1")
+BOLA_FLAG2 = os.environ.get("BOLA_FLAG2")
+SSRF_FLAG1 = os.environ.get("SSRF_FLAG1")
+SSRF_FLAG2 = os.environ.get("SSRF_FLAG2")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="user/login/")
@@ -94,6 +102,21 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
     return user
 
+# 有効なURLであるかどうかを検証
+def is_valid_url(value: str) -> bool:
+    try:
+        result = urlparse(value)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+# URLのドメインがlocalhostでないことを検証
+def is_not_localhost(hostname: str) -> bool:
+    """
+    Check if the given hostname is localhost.
+    """
+    return hostname not in ["localhost", "127.0.0.1", "::1"]
+
 @app.on_event("startup")
 async def startup():
     await database.connect()
@@ -149,14 +172,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 ## ユーザーの画像を登録
 @app.post("/user/image", tags=["user"], status_code=201)
 async def register_user_image(image_data: UserImage, current_user: UserIn = Depends(get_current_user)):
-    # SSRFの脆弱性部分
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(image_data.image_url)
-            if response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Failed to fetch the image from the provided URL.")
+    # 有効なURLであることを検証
+    if not is_valid_url(image_data.image_url):
+        raise HTTPException(status_code=400, detail="Invalid URL")
 
     # 画像URLをユーザーデータベースに保存
     query = User.__table__.update().where(User.id == current_user.id).values(image_url=image_data.image_url)
@@ -174,7 +192,6 @@ async def get_user_image(current_user: UserIn = Depends(get_current_user)):
     if not user.image_url:
         raise HTTPException(status_code=404, detail="No image associated with this user")
 
-    # SSRFの脆弱性部分
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(user.image_url)
@@ -223,53 +240,13 @@ async def get_posts(skip: int = 0, limit: int = 10):
     posts = await database.fetch_all(query)
     return posts
 
-## 投稿の作成
-@app.post("/post/create", tags=["post"], response_model=PostOut, status_code=201)
-async def create_post(post: PostCreate, current_user: UserIn = Depends(get_current_user)):
-    query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, is_private=post.is_private)
-    post_id = await database.execute(query)
-    query = Post.__table__.select().where(Post.id == post_id)
-    post = await database.fetch_one(query)
-    return post
-
-## 投稿をPDFにしてエクスポート
-@app.get("/post/export/{post_id}", tags=["post"])
-async def export_post_to_pdf(post_id: int, current_user: UserIn = Depends(get_current_user)):
-    # postの情報を取得
-    query = Post.__table__.select().where(Post.id == post_id)
-    post = await database.fetch_one(query)
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-
-    # postがprivateであり、postのusernameとcurrent_userのusernameが異なる場合、エラーを投げる
-    if post.is_private and post_user.username != current_user.username:
-        raise HTTPException(status_code=403, detail="Access to private post denied")
-    
-    # postの情報をHTML形式でフォーマット
-    html_content = f"""
-    <html>
-        <head>
-            <title>{post.title}</title>
-        </head>
-        <body>
-            <h1>{post.title}</h1>
-            <p>{post.content}</p>
-        </body>
-    </html>
-    """
-    
-    # HTMLをPDFに変換
-    pdf = pdfkit.from_string(html_content, False)
-    
-    return StreamingResponse(BytesIO(pdf), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=post_{post_id}.pdf"})
-
 # 管理者用API
 ## ユーザーの一覧を取得
 @app.get("/admin/users", tags=["admin"])
-async def list_users(request: Request, skip: int = 0, limit: int = 10):
-    client_host = request.client.host
-    if client_host not in ("127.0.0.1", "::1"):
-        raise HTTPException(status_code=403, detail="Not allowed!")
+async def list_users(skip: int = 0, limit: int = 10, current_user: UserIn = Depends(get_current_user)):
+    # roleがadminであることをチェック
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     query = User.__table__.select().offset(skip).limit(limit)
     users = await database.fetch_all(query)
@@ -277,14 +254,75 @@ async def list_users(request: Request, skip: int = 0, limit: int = 10):
 
 ## ユーザーの投稿を削除
 @app.delete("/admin/post/delete/{post_id}", tags=["admin"], status_code=200)
-async def delete_post(post_id: int):
+async def delete_post(post_id: int, current_user: UserIn = Depends(get_current_user)):
+    # roleがadminであることをチェック
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     query = Post.__table__.delete().where(Post.id == post_id)
     await database.execute(query)
     return {"detail": f"Post with id {post_id} deleted successfully"}
 
 ## 全ての投稿を取得
 @app.get("/admin/all_posts", tags=["admin"])
-async def get_all_posts():
+async def get_all_posts(current_user: UserIn = Depends(get_current_user)):
+    # roleがadminであることをチェック
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     query = Post.__table__.select()
     posts = await database.fetch_all(query)
     return posts
+
+## シークレット情報を取得（1つ目）
+@app.get("/admin/secret1", tags=["admin"])
+async def get_secret_one():
+    return {"flag": BFLA_FLAG1}
+
+## シークレット情報を取得（2つ目）
+@app.get("/admin/secret2", tags=["admin"])
+async def get_secret_two(role: str = None, current_user: UserIn = Depends(get_current_user)):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return {"flag": BFLA_FLAG2}
+
+# 内部呼び出し用API
+## 内部ネットワーク情報を取得
+@app.get("/internal/network", tags=["internal"])
+async def get_internal_network_info(request: Request):
+    # 内部からのアクセスでない場合、エラーを投げる
+    client_host = request.client.host
+    if client_host not in ("127.0.0.1", "::1"):
+        raise HTTPException(status_code=403, detail="Not allowed!")
+    
+    return {
+        "internal_network_info": {
+            "db": "localhost:3306",
+            "frontend": "localhost:5000",
+            "api": "localhost:8000",
+            "flag": SSRF_FLAG1
+        }
+    }
+
+## 開発者情報を取得
+@app.get("/internal/developer", tags=["internal"])
+async def get_developer_info(request: Request):
+    # 内部からのアクセスでない場合、エラーを投げる
+    client_host = request.client.host
+    if client_host not in ("127.0.0.1", "::1"):
+        raise HTTPException(status_code=403, detail="Not allowed!")
+
+    # URLのドメイン名がlocalhostであることを検証
+    hostname = urlparse(str(request.url)).hostname
+    print("hostname:", hostname)
+    if not is_not_localhost(hostname):
+        raise HTTPException(status_code=400, detail="URL domain is localhost.")
+
+    return {
+        "developer_info": {
+            "name": "Kenji Araki",
+            "email": "kenji-a@email.example.com",
+            "flag": SSRF_FLAG2
+        }
+    }
