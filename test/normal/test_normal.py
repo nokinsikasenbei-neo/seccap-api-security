@@ -78,7 +78,7 @@ def test_create_post():
 def test_get_post_by_id():
     token = login_user(username, password)
     post = create_post("Test Title", "Test Content", token)
-    retrieved_post = get_post_by_id(post["id"], token)[0]
+    retrieved_post = get_post_by_id(post["id"], token)
     assert retrieved_post['title'] == post['title']
     assert retrieved_post['content'] == post['content']
 

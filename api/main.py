@@ -214,14 +214,12 @@ async def get_user_profile(user_id: int, current_user: UserIn = Depends(get_curr
 
 ## 投稿の取得
 @app.get("/post/{post_id}", tags=["post"])
-async def get_post_by_id(post_id: str, current_user: str = Depends(get_current_user)):
-    raw_query = f"SELECT id, title, content, user_id, is_private FROM posts WHERE id = {post_id};"
-    posts = await database.fetch_all(raw_query)
+async def get_post_by_id(post_id: int, current_user: str = Depends(get_current_user)):
+    query = Post.__table__.select().where(Post.id == post_id)
+    post = await database.fetch_one(query)
 
-    if not posts:
+    if post == None:
         raise HTTPException(status_code=404, detail="Post not found")
-    
-    post = posts[0]
 
     # postのuser_idに関連付けられているusernameを取得する
     user_query = User.__table__.select().where(User.id == post.user_id)
@@ -231,7 +229,7 @@ async def get_post_by_id(post_id: str, current_user: str = Depends(get_current_u
     if post.is_private and post_user.username != current_user.username:
         raise HTTPException(status_code=403, detail="Access to private post denied")
 
-    return posts
+    return post
 
 ## 公開されている投稿の一覧を取得
 @app.get("/posts", tags=["post"], response_model=List[PostOut])

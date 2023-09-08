@@ -64,7 +64,7 @@ def test_user_registration_and_private_post():
     assert 'id' in post
 
     # ユーザーAでそのプライベートな投稿を閲覧
-    post_by_A = get_post_by_id(post["id"], tokenA)[0]
+    post_by_A = get_post_by_id(post["id"], tokenA)
     assert post_by_A['id'] == post['id']
     assert post_by_A['title'] == "Private Title"
     assert post_by_A['content'] == "Private Content"
