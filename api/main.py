@@ -41,6 +41,9 @@ class UserIn(BaseModel):
     username: str
     password: str
 
+class UserImage(BaseModel):
+    image_url: str
+
 class PostCreate(BaseModel):
     title: str
     content: str
@@ -58,9 +61,6 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str
-
-class UserImage(BaseModel):
-    image_url: str
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)

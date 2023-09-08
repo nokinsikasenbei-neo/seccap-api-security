@@ -46,42 +46,35 @@ def get_user_profile_by_id(user_id, token):
     response = requests.get(f"{BASE_URL}/user/profile/{user_id}", headers=headers)
     return response.json()
 
+def update_username(username, token):
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    response = requests.put(f"{BASE_URL}/user/username", headers=headers, json={"new_username": username})
+    return response.json()
+
 @pytest.fixture(scope="module")
-def registered_users():
-    userA_username = generate_random_string(10)
-    userA_password = generate_random_string(10)
-    userB_username = userA_username  # ユーザーAと同名
-    userB_password = generate_random_string(10)
+def registered_user():
+    username = "admin"
+    password = generate_random_string(10)
+    user_info = register_user(username, password)
+    token = login_user(username, password)
+    return username, password, user_info, token
 
-    userA = register_user(userA_username, userA_password)
-    userB = register_user(userB_username, userB_password)
+def test_retrieve_admin_post_by_user(registered_user):
+    _, _, _, token = registered_user
 
-    userA_id = userA["id"]
-    userB_id = userB["id"]
+    # adminのprivateな投稿を取得
+    post_by_admin = get_post_by_id("1", token)[0]
 
-    tokenA = login_user(userA_username, userA_password)
-    tokenB = login_user(userB_username, userB_password)
-    return userA_id, userA_username, userA_password, userB_id, userB_username, userB_password, tokenA, tokenB
+    assert "Welcome to admin private blog!" == post_by_admin["title"]
+    assert "flag" in post_by_admin["content"]
 
-def test_create_and_retrieve_post_by_userA(registered_users):
-    _, _, _, _, _, _, tokenA, _ = registered_users
-    post = create_private_post("Private Title", "Private Content", tokenA)
-    post_by_A = get_post_by_id(post["id"], tokenA)[0]
+def test_get_user_profile(registered_user):
+    _, _, _, token = registered_user
+
+    # adminのプロフィール情報を取得
+    admin_user = get_user_profile_by_id("1", token)
     
-    assert post["title"] == post_by_A["title"]
-    assert post["content"] == post_by_A["content"]
-
-def test_retrieve_post_by_userB(registered_users):
-    _, _, _, _, _, _, tokenA, tokenB = registered_users
-    post = create_private_post("Private Title", "Private Content", tokenA)
-    post_by_A = get_post_by_id(post["id"], tokenB)[0]
-
-    assert post["title"] == post_by_A["title"]
-    assert post["content"] == post_by_A["content"]
-
-def test_get_user_profile(registered_users):
-    userA_id, userA_username, _, userB_id, userB_username, _, tokenA, tokenB = registered_users
-
-    # ユーザーAのプロフィールを取得
-    userA = get_user_profile_by_id(userA_id, tokenB)
-    assert userA["username"] == userA_username
+    assert "admin" == admin_user["username"]
+    assert "flag" in admin_user["image_url"]
