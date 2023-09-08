@@ -26,77 +26,35 @@ def login_user(username, password):
     response = requests.post(f"{BASE_URL}/user/login", data=data)
     return response.json()["access_token"]
 
-def create_private_post(title, content, token):
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"title": title, "content": content, "is_private": True}
-    response = requests.post(f"{BASE_URL}/post/create", headers=headers, json=payload)
-    return response.json()
-
-def get_post_by_id(post_id, token=None):
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    response = requests.get(f"{BASE_URL}/post/{post_id}", headers=headers)
-    return response.json()
-
-def delete_post_by_id(post_id):
-    response = requests.delete(f"{BASE_URL}/admin/post/delete/{post_id}")
-    return response.json()
-
-def get_all_posts():
-    response = requests.get(f"{BASE_URL}/admin/all_posts")
-    return response.json()
-
 @pytest.fixture(scope="module")
-def registered_users():
-    userA_username = generate_random_string(10)
-    userA_password = generate_random_string(10)
-    userB_username = generate_random_string(10)
-    userB_password = generate_random_string(10)
+def registered_user():
+    username = generate_random_string(10)
+    password = generate_random_string(10)
+    user_info = register_user(username, password)
+    token = login_user(username, password)
+    return username, password, user_info, token
 
-    register_user(userA_username, userA_password)
-    register_user(userB_username, userB_password)
+def get_secret1(token):
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(f"{BASE_URL}/admin/secret1", headers=headers)
+    return response.json()
 
-    tokenA = login_user(userA_username, userA_password)
-    tokenB = login_user(userB_username, userB_password)
-    return userA_username, userA_password, userB_username, userB_password, tokenA, tokenB
+def get_secret2(token, query):
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(f"{BASE_URL}/admin/secret2?{query}", headers=headers)
+    return response.json()
 
-def test_create_retrieve_and_delete_post(registered_users):
-    _, _, _, _, tokenA, tokenB = registered_users
+def test_get_secret1(registered_user):
+    _, _, _, token = registered_user
 
-    post = create_private_post("Private Title", "Private Content", tokenA)
-    post_by_A = get_post_by_id(post["id"], tokenA)[0]
-    
-    # ユーザーAが作成した投稿を確認
-    assert post["title"] == post_by_A["title"]
-    assert post["content"] == post_by_A["content"]
+    secret1 = get_secret1(token)
+    assert 'flag' in secret1
 
-    # ユーザーBがユーザーAのプライベート投稿を削除を試みる
-    delete_response_by_B = delete_post_by_id(post["id"])
-    assert delete_response_by_B["detail"] == f"Post with id {post['id']} deleted successfully"
+def test_get_secret2(registered_user):
+    _, _, _, token = registered_user
 
-    # ユーザーAがそのプライベート投稿を再度閲覧して、削除されていることを確認
-    post_by_A_after_delete = get_post_by_id(post["id"], tokenA)
-    assert post_by_A_after_delete["detail"] == "Post not found"
+    secret2 = get_secret2(token, "role=guest")
+    assert 'flag' not in secret2
 
-def test_admin_get_all_posts(registered_users):
-    _, _, _, _, tokenA, tokenB = registered_users
-
-    postA = create_private_post("Post by A", "Content A", tokenA)
-    postB = create_private_post("Post by B", "Content B", tokenB)
-
-    all_posts = get_all_posts()
-
-    # 全投稿からユーザーAとBの投稿を検索
-    postA_from_all = next((post for post in all_posts if post["id"] == postA["id"]), None)
-    postB_from_all = next((post for post in all_posts if post["id"] == postB["id"]), None)
-
-    # ユーザーAとBの投稿が存在することを確認
-    assert postA_from_all is not None
-    assert postB_from_all is not None
-
-    # タイトルとコンテンツが正しいことを確認
-    assert postA_from_all["title"] == "Post by A"
-    assert postA_from_all["content"] == "Content A"
-    assert postB_from_all["title"] == "Post by B"
-    assert postB_from_all["content"] == "Content B"
+    secret2 = get_secret2(token, "role=admin")
+    assert 'flag' in secret2

