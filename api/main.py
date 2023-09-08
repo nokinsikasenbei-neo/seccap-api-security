@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from io import BytesIO
 from pydantic import BaseModel
 from typing import List, Optional
@@ -332,3 +332,9 @@ async def get_developer_info(request: Request):
             "flag": SSRF_FLAG2
         }
     }
+
+# ソースコードを返す
+@app.get("/source")
+def get_source():
+    file_path = "main.py"
+    return FileResponse(file_path, filename="main.py")
