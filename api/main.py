@@ -322,7 +322,6 @@ async def get_developer_info(request: Request):
 
     # URLのドメイン名がlocalhostであることを検証
     hostname = urlparse(str(request.url)).hostname
-    print("hostname:", hostname)
     if not is_not_localhost(hostname):
         raise HTTPException(status_code=400, detail="URL domain is localhost.")
 
