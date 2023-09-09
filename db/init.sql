@@ -9,7 +9,7 @@ CREATE TABLE users
     sub VARCHAR(255) NOT NULL UNIQUE,
     hashed_password VARCHAR(255) NOT NULL,
     role ENUM('admin', 'user') DEFAULT 'user',
-    image_url VARCHAR(255)
+    image_url VARCHAR(255) DEFAULT 'https://via.placeholder.com/150'
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 
 CREATE TABLE posts 

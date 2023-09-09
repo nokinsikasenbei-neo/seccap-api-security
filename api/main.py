@@ -45,6 +45,12 @@ class UserIn(BaseModel):
 class UserImage(BaseModel):
     image_url: str
 
+class UserProfile(BaseModel):
+    user_id: int
+    username: str
+    role: str
+    image_url: str
+
 class PostCreate(BaseModel):
     title: str
     content: str
@@ -174,9 +180,26 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+## ユーザーのプロファイル情報を取得
+@app.get("/user/profile", tags=["user"])
+async def get_user_profile(current_user: UserIn = Depends(get_current_user)):
+    query = User.__table__.select().where(User.id == current_user.id)
+    user = await database.fetch_one(query)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    profile = UserProfile(
+        user_id=user.id,
+        username=user.username,
+        role=user.role,
+        image_url=user.image_url
+    )
+    return profile
+
 ## ユーザーの画像を登録
 @app.post("/user/image", tags=["user"], status_code=201)
 async def register_user_image(image_data: UserImage, current_user: UserIn = Depends(get_current_user)):
+    print(image_data.image_url)
     # 有効なURLであることを検証
     if not is_valid_url(image_data.image_url):
         raise HTTPException(status_code=400, detail="Invalid URL")

@@ -120,16 +120,50 @@ def my_page():
         return redirect(url_for('login'))
     headers = {"Authorization": f"Bearer {session['token']}"}
     try:
-        response = requests.get(f"{BASE_URL}/user/image", headers=headers)
+        response = requests.get(f"{BASE_URL}/user/profile", headers=headers)
         response.raise_for_status()
-        response_json = response.json()
-        image_url = response_json.get("image_url", "https://via.placeholder.com/150")
+        profile = response.json()
     except requests.RequestException as e:
         logging.error(e)
         flash("Failed to fetch user data. Please try again.")
         return redirect(url_for('timeline'))
 
-    return render_template('my_page.html', image_url=image_url)
+    return render_template('my_page.html', profile=profile)
+
+@app.route('/user/image', methods=['GET'])
+def get_user_image():
+    if 'token' not in session:
+        flash("Please login first.")
+        return redirect(url_for('login'))
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    try:
+        response = requests.get(f"{BASE_URL}/user/image", headers=headers)
+        response.raise_for_status()
+        
+        content_type = response.headers.get('Content-Type')
+        return response.content, 200, {'Content-Type': content_type}
+    except requests.RequestException as e:
+        logging.error(e)
+        flash("Failed to fetch user image. Please try again.")
+        return redirect(url_for('timeline'))
+
+@app.route('/user/image', methods=['POST'])
+def update_user_image():
+    if 'token' not in session:
+        flash("Please login first.")
+        return redirect(url_for('login'))
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    image_url = request.form.get('image_url')
+    try:
+        response = requests.post(f"{BASE_URL}/user/image", headers=headers, json={"image_url": image_url})
+        response.raise_for_status()
+        logging.info(response.json())
+        flash("Image URL updated successfully.")
+        return redirect(url_for('my_page'))
+    except requests.RequestException as e:
+        logging.error(e)
+        flash("Failed to update image URL. Please try again.")
+        return redirect(url_for('timeline'))
 
 if __name__ == '__main__':
     app.run(debug=True)
