@@ -331,7 +331,7 @@ async def get_internal_network_info(request: Request):
         "internal_network_info": {
             "db": "localhost:3306",
             "frontend": "localhost:5000",
-            "api": "localhost:8000",
+            "api": "localhost:7000",
             "flag": SSRF_FLAG1
         }
     }

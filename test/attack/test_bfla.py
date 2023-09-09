@@ -3,7 +3,7 @@ import secrets
 import string
 import pytest
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:7000"
 
 def generate_random_string(length: int) -> str:
     alphabet = string.ascii_letters + string.digits

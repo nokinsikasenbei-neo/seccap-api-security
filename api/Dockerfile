@@ -9,4 +9,4 @@ RUN apt-get update && \
 
 COPY . .
 
-CMD ["./wait_for_it.sh", "db:3306", "--", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./wait_for_it.sh", "db:3306", "--", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7000"]

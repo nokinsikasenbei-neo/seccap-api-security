@@ -6,7 +6,7 @@ import pytest
 import os
 
 # APIのベースURL
-BASE_URL = "http://localhost:8000"  # FastAPIのデフォルトのアドレスとポート
+BASE_URL = "http://localhost:7000"  # FastAPIのデフォルトのアドレスとポート
 
 def generate_random_string(length: int) -> str:
     alphabet = string.ascii_letters + string.digits
@@ -73,7 +73,7 @@ def registered_user():
 def test_get_internal_network_info_with_ssrf(registered_user):
     _, _, _, token = registered_user
 
-    image_url = "http://localhost:8000/internal/network"
+    image_url = "http://localhost:7000/internal/network"
     
     # ユーザー画像を登録
     image_registration_result = register_user_image(image_url, token)
@@ -86,7 +86,7 @@ def test_get_internal_network_info_with_ssrf(registered_user):
 def test_get_internal_developer_info_with_ssrf(registered_user):
     _, _, _, token = registered_user
 
-    image_url = "http://localhost:8000/internal/developer" # 刺さらない
+    image_url = "http://localhost:7000/internal/developer" # 刺さらない
 
     # ユーザー画像を登録
     image_registration_result = register_user_image(image_url, token)
@@ -96,7 +96,7 @@ def test_get_internal_developer_info_with_ssrf(registered_user):
     image_download_result = get_user_image(token)
     assert "Failed to fetch the image" in image_download_result
 
-    image_url = "http://127.0.0.0:8000/internal/developer" # 刺さる
+    image_url = "http://127.0.0.0:7000/internal/developer" # 刺さる
 
     # ユーザー画像を登録
     image_registration_result = register_user_image(image_url, token)

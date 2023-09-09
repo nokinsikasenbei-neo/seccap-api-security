@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 logging.basicConfig(level=logging.INFO)
 
-BASE_URL = "http://api:8000"
+BASE_URL = "http://api:7000"
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

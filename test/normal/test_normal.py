@@ -4,7 +4,7 @@ import string
 import pytest
 
 # APIのベースURL
-BASE_URL = "http://localhost:8000"  # FastAPIのデフォルトのアドレスとポート
+BASE_URL = "http://localhost:7000"  # FastAPIのデフォルトのアドレスとポート
 
 def generate_random_string(length: int) -> str:
     alphabet = string.ascii_letters + string.digits
