@@ -6,11 +6,15 @@
     <a href="{{ url_for('view_post', post_id=post.id) }}" class="text-dark text-decoration-none">
         <div class="card mb-3">
             <div class="card-header">
-                <span class="font-weight-bold">Title:</span>
+                <span class="font-weight-bold">タイトル :</span>
                 {{ post.title }}
             </div>
+            <div class="card-header">
+                <span class="font-weight-bold">投稿者 :</span>
+                {{ post.username }}
+            </div>
             <div class="card-body">
-                <p><span class="font-weight-bold">Content:</span><br>{{ post.content }}</p>
+                <p><span class="font-weight-bold"></span><br>{{ post.content }}</p>
             </div>
         </div>
     </a>

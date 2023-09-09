@@ -10,7 +10,7 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: "mysql://user:password@db/mydatabase"
+      DATABASE_URL: "mysql://user:password@db/mydatabase?charset=utf8mb4"
       BFLA_FLAG1: "flag{Funct10n_n07_4uth0r1z3d_f0r_y0u}"
       BFLA_FLAG2: "flag{M45t3r_0f_byp4551ng_funct10n_4uth}"
       BOLA_FLAG1: "flag{4cc3ss_t0_un4uth0r1z3d_0bj3ct}"

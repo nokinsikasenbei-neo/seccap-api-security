@@ -13,6 +13,7 @@ from jose import JWTError, jwt
 import secrets
 import os
 import httpx
+import uuid
 from urllib.parse import urlparse
 
 app = FastAPI()
@@ -54,13 +55,15 @@ class PostOut(BaseModel):
     title: str
     content: str
     user_id: int
+    username: str
+    is_private: bool
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 class TokenData(BaseModel):
-    username: str
+    sub: str
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
@@ -89,14 +92,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        sub: str = payload.get("sub")
+        if sub is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
+        token_data = TokenData(sub=sub)
     except JWTError:
         raise credentials_exception
 
-    query = User.__table__.select().where(User.username == token_data.username)
+    query = User.__table__.select().where(User.sub == token_data.sub)
     user = await database.fetch_one(query)
     if user is None:
         raise credentials_exception
@@ -134,13 +137,15 @@ def healthcheck():
 ## ユーザー登録
 @app.post("/user/register", tags=["user"], status_code=201)
 async def register(user: UserIn):
+    # 既に同じユーザー名が存在する場合、エラーを投げる
     # query = User.__table__.select().where(User.username == user.username)
     # existing_user = await database.fetch_one(query)
     # if existing_user:
     #     raise HTTPException(status_code=400, detail="Username already exists.")
     
+    # パスワードをハッシュ化してデータベースに保存
     hashed_password = get_password_hash(user.password)
-    query = User.__table__.insert().values(username=user.username, hashed_password=hashed_password)
+    query = User.__table__.insert().values(username=user.username, hashed_password=hashed_password, sub=str(uuid.uuid4()))
     user_id = await database.execute(query)
     return {"id": user_id, "username": user.username}
 
@@ -165,7 +170,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.sub }, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -221,19 +226,15 @@ async def get_post_by_id(post_id: int, current_user: str = Depends(get_current_u
     if post == None:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    # postのuser_idに関連付けられているusernameを取得する
-    user_query = User.__table__.select().where(User.id == post.user_id)
-    post_user = await database.fetch_one(user_query)
-
     # postがprivateであり、postのusernameとcurrent_userのusernameが異なる場合、エラーを投げる
-    if post.is_private and post_user.username != current_user.username:
+    if post.is_private and post.username != current_user.username:
         raise HTTPException(status_code=403, detail="Access to private post denied")
 
     return post
 
 ## 公開されている投稿の一覧を取得
 @app.get("/posts", tags=["post"], response_model=List[PostOut])
-async def get_posts(skip: int = 0, limit: int = 10):
+async def get_posts(skip: int = 0, limit: int = 50):
     query = Post.__table__.select().where(Post.is_private == False).offset(skip).limit(limit)
     posts = await database.fetch_all(query)
     return posts
@@ -241,7 +242,7 @@ async def get_posts(skip: int = 0, limit: int = 10):
 ## 投稿の作成
 @app.post("/post/create", tags=["post"], response_model=PostOut, status_code=201)
 async def create_post(post: PostCreate, current_user: UserIn = Depends(get_current_user)):
-    query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, is_private=post.is_private)
+    query = Post.__table__.insert().values(title=post.title, content=post.content, user_id=current_user.id, username = current_user.username, is_private=post.is_private)
     post_id = await database.execute(query)
     query = Post.__table__.select().where(Post.id == post_id)
     post = await database.fetch_one(query)
