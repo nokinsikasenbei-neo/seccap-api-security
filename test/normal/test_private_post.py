@@ -2,8 +2,9 @@ import requests
 import secrets
 import string
 import pytest
+import os
 
-BASE_URL = "http://localhost:7000"
+BASE_URL = "http://localhost:7000" or os.environ.get("BASE_URL")
 
 def generate_random_string(length: int) -> str:
     alphabet = string.ascii_letters + string.digits
