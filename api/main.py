@@ -119,7 +119,7 @@ def is_valid_url(value: str) -> bool:
     except ValueError:
         return False
 
-# URLのドメインがlocalhostでないことを検証
+# URLのドメイン名がlocalhostでないことを検証
 def is_not_localhost(hostname: str) -> bool:
     """
     Check if the given hostname is localhost.
@@ -344,7 +344,7 @@ async def get_developer_info(request: Request):
     if client_host not in ("127.0.0.1", "::1"):
         raise HTTPException(status_code=403, detail="Not allowed!")
 
-    # URLのドメイン名がlocalhostであることを検証
+    # URLのドメイン名がlocalhostでないことを検証
     hostname = urlparse(str(request.url)).hostname
     if not is_not_localhost(hostname):
         raise HTTPException(status_code=400, detail="URL domain is localhost.")
