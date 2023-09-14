@@ -356,9 +356,3 @@ async def get_developer_info(request: Request):
             "flag": SSRF_FLAG2
         }
     }
-
-# ソースコードを返す
-@app.get("/source")
-def get_source():
-    file_path = "main.py"
-    return FileResponse(file_path, filename="main.py")
