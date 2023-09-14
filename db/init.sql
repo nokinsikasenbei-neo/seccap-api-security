@@ -24,9 +24,9 @@ CREATE TABLE posts
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 
 -- adminユーザーの追加, image_urlにBOLA_FLAG1を格納
-INSERT INTO users (username, sub, hashed_password, role, image_url) VALUES ('admin', '9c3d153c-4951-4238-8a27-a0137469c2d4', '$2a$04$tW5NykUb1cGVtB.r/qtmBu07TWXVXdyrmdohizsgUBW5qWx7j8lma', 'admin', 'flag{4cc3ss_t0_un4uth0r1z3d_0bj3ct}');
+INSERT INTO users (username, sub, hashed_password, role, image_url) VALUES ('admin', '9c3d153c-4951-4238-8a27-a0137469c2d4', '$2a$04$tW5NykUb1cGVtB.r/qtmBu07TWXVXdyrmdohizsgUBW5qWx7j8lma', 'admin', 'flag{dummy_flag}');
 -- adminのprivateなpostの追加, contentにBOLA_FLAG2を格納
-INSERT INTO posts (title, content, user_id, username, is_private) VALUES ('Welcome to admin private blog!', 'flag is flag{0bj3ct_c0ntr0l_byp4553d}', 1, 'admin', TRUE);
+INSERT INTO posts (title, content, user_id, username, is_private) VALUES ('Welcome to admin private blog!', 'flag is flag{dummy_flag}', 1, 'admin', TRUE);
 
 INSERT INTO users (username, sub, hashed_password, role) 
 VALUES ('testuser', 'b2c3d4e5-f6g7-8901-hi23-jklmnopqrstuv', '$2a$04$5s7o.GoqcSl1GydjVVkkl.PJ8vgw3YCMTmYP0PjwNPbKt2qS4J21i', 'user');
